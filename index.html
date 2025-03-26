@@ -4,34 +4,68 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>mHealth App</title>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body onload="initClient()">
     <h1>mHealth App</h1>
     <div id="login-container">
-        <div id="g_id_onload"
-             data-client_id="69710847341-8ophvuic95s6v8kpa0amvp9a46k9t8su.apps.googleusercontent.com"
-             data-callback="handleLoginSuccess">
-        </div>
-        <div class="g_id_signin" data-type="standard"></div>
+        <button onclick="signIn()">Sign in with Google</button>
     </div>
     
     <div id="content" style="display: none;">
         <h2>Welcome, <span id="user-name"></span></h2>
         <h3>Step Count (Last 7 Days)</h3>
         <canvas id="stepChart"></canvas>
+        
+        <h3>Blood Pressure (Systolic/Diastolic)</h3>
+        <p id="bloodPressure">Loading...</p>
+        
+        <h3>Heart Rate (HBPM)</h3>
+        <p id="heartRate">Loading...</p>
+        
+        <h3>Mood Tracker</h3>
+        <div id="mood-tracker">
+            <span onclick="setMood('😃')">😃</span>
+            <span onclick="setMood('🙂')">🙂</span>
+            <span onclick="setMood('😐')">😐</span>
+            <span onclick="setMood('😢')">😢</span>
+            <span onclick="setMood('😡')">😡</span>
+        </div>
+        <p>Your Mood: <span id="selectedMood">None</span></p>
     </div>
 
     <script>
         let accessToken = "";
+        
+        function initClient() {
+            gapi.load('client:auth2', () => {
+                gapi.client.init({
+                    clientId: "69710847341-8ophvuic95s6v8kpa0amvp9a46k9t8su.apps.googleusercontent.com",
+                    scope: "https://www.googleapis.com/auth/fitness.activity.read",
+                    discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/fitness/v1/rest"]
+                }).then(() => {
+                    const authInstance = gapi.auth2.getAuthInstance();
+                    if (authInstance.isSignedIn.get()) {
+                        handleLoginSuccess();
+                    }
+                });
+            });
+        }
 
-        function handleLoginSuccess(response) {
-            const credential = response.credential;
-            accessToken = credential;
+        function signIn() {
+            gapi.auth2.getAuthInstance().signIn().then(handleLoginSuccess);
+        }
+
+        function handleLoginSuccess() {
+            const authInstance = gapi.auth2.getAuthInstance();
+            const user = authInstance.currentUser.get();
+            accessToken = user.getAuthResponse().access_token;
             document.getElementById("login-container").style.display = "none";
             document.getElementById("content").style.display = "block";
             fetchSteps();
+            fetchBloodPressure();
+            fetchHeartRate();
         }
 
         async function fetchSteps() {
@@ -42,16 +76,13 @@
                 startTimeMillis: Date.now() - 7 * 24 * 60 * 60 * 1000,
                 endTimeMillis: Date.now(),
             };
-
+            
             const response = await fetch(url, {
                 method: "POST",
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    "Content-Type": "application/json",
-                },
+                headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
                 body: JSON.stringify(body),
             });
-
+            
             const data = await response.json();
             if (data.bucket) {
                 const labels = [];
@@ -64,20 +95,58 @@
             }
         }
 
+        async function fetchBloodPressure() {
+            const url = "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate";
+            const body = {
+                aggregateBy: [{ dataTypeName: "com.google.blood_pressure" }],
+                bucketByTime: { durationMillis: 86400000 },
+                startTimeMillis: Date.now() - 1 * 24 * 60 * 60 * 1000,
+                endTimeMillis: Date.now(),
+            };
+
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+            
+            const data = await response.json();
+            const value = data.bucket[0]?.dataset[0]?.point[0]?.value;
+            if (value) {
+                document.getElementById("bloodPressure").innerText = `${value[0]?.fpVal || 0} / ${value[1]?.fpVal || 0} mmHg`;
+            }
+        }
+
+        async function fetchHeartRate() {
+            const url = "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate";
+            const body = {
+                aggregateBy: [{ dataTypeName: "com.google.heart_rate.bpm" }],
+                bucketByTime: { durationMillis: 86400000 },
+                startTimeMillis: Date.now() - 1 * 24 * 60 * 60 * 1000,
+                endTimeMillis: Date.now(),
+            };
+            
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+            
+            const data = await response.json();
+            const value = data.bucket[0]?.dataset[0]?.point[0]?.value[0]?.fpVal;
+            document.getElementById("heartRate").innerText = value ? `${value} BPM` : "No Data";
+        }
+
         function renderChart(labels, steps) {
             const ctx = document.getElementById("stepChart").getContext("2d");
             new Chart(ctx, {
                 type: "line",
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: "Steps",
-                        data: steps,
-                        borderColor: "#42A5F5",
-                        fill: false
-                    }]
-                }
+                data: { labels: labels, datasets: [{ label: "Steps", data: steps, borderColor: "#42A5F5", fill: false }] }
             });
+        }
+
+        function setMood(mood) {
+            document.getElementById("selectedMood").innerText = mood;
         }
     </script>
 </body>
