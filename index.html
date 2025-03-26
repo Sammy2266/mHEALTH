@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="google-site-verification" content="yuKWbvYTaV3ehIOTglKFk-gEMHQqeTIu3EvXHU1xfbo" />
     <title>mHealth App</title>
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body onload="initClient()">
     <h1>mHealth App</h1>
@@ -42,7 +42,7 @@
         function initClient() {
             gapi.load('client:auth2', () => {
                 gapi.client.init({
-                    clientId: "69710847341-8ophvuic95s6v8kpa0amvp9a46k9t8su.apps.googleusercontent.com",
+                    clientId: "YOUR_GOOGLE_CLIENT_ID",
                     scope: "https://www.googleapis.com/auth/fitness.activity.read",
                     discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/fitness/v1/rest"]
                 }).then(() => {
@@ -150,6 +150,5 @@
             document.getElementById("selectedMood").innerText = mood;
         }
     </script>
-    <footer><a href="privacy policy.html">Privacy Policy</a></footer>
 </body>
 </html>
