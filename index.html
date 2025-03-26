@@ -1,33 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/assets/dark-logo-ITa_fztP.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ilara - EMR</title>
-    <!-- Gainsight PX Tag-->
-    <script type="text/javascript">
-      (function (n, t, a, e, co) {
-        var i = 'aptrinsic';
-        (n[i] =
-          n[i] ||
-          function () {
-            (n[i].q = n[i].q || []).push(arguments);
-          }),
-          (n[i].p = e);
-        n[i].c = co;
-        var r = t.createElement('script');
-        (r.async = !0), (r.src = a + '?a=' + e);
-        var c = t.getElementsByTagName('script')[0];
-        c.parentNode.insertBefore(r, c);
-      })(window, document, 'https://web-sdk.aptrinsic.com/api/aptrinsic.js', 'AP-VZUIZPA8WQ7D-2');
-    </script>
-    <!-- Gainsight PX Tag-->
-    <script type="module" crossorigin src="/assets/index-CFzRXaef.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CY2SgEqy.css">
-  </head>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mHealth App</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>mHealth App</h1>
+    <div id="login-container">
+        <div id="g_id_onload"
+             data-client_id="YOUR_GOOGLE_CLIENT_ID"
+             data-callback="handleLoginSuccess">
+        </div>
+        <div class="g_id_signin" data-type="standard"></div>
+    </div>
+    
+    <div id="content" style="display: none;">
+        <h2>Welcome, <span id="user-name"></span></h2>
+        <h3>Step Count (Last 7 Days)</h3>
+        <canvas id="stepChart"></canvas>
+    </div>
 
-  <body>
-    <div id="root"></div>
-  <!-- Cloudflare Pages Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "a7e80608a9884306b281f1813cda77fa"}'></script><!-- Cloudflare Pages Analytics --></body>
+    <script>
+        let accessToken = "";
+
+        function handleLoginSuccess(response) {
+            const credential = response.credential;
+            accessToken = credential;
+            document.getElementById("login-container").style.display = "none";
+            document.getElementById("content").style.display = "block";
+            fetchSteps();
+        }
+
+        async function fetchSteps() {
+            const url = "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate";
+            const body = {
+                aggregateBy: [{ dataTypeName: "com.google.step_count.delta" }],
+                bucketByTime: { durationMillis: 86400000 },
+                startTimeMillis: Date.now() - 7 * 24 * 60 * 60 * 1000,
+                endTimeMillis: Date.now(),
+            };
+
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(body),
+            });
+
+            const data = await response.json();
+            if (data.bucket) {
+                const labels = [];
+                const steps = [];
+                data.bucket.forEach(bucket => {
+                    labels.push(new Date(parseInt(bucket.startTimeMillis)).toLocaleDateString());
+                    steps.push(bucket.dataset[0].point[0]?.value[0]?.intVal || 0);
+                });
+                renderChart(labels, steps);
+            }
+        }
+
+        function renderChart(labels, steps) {
+            const ctx = document.getElementById("stepChart").getContext("2d");
+            new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: "Steps",
+                        data: steps,
+                        borderColor: "#42A5F5",
+                        fill: false
+                    }]
+                }
+            });
+        }
+    </script>
+</body>
 </html>
